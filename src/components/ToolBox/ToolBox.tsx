@@ -1,5 +1,5 @@
-import { ToolBoxProps } from '@/types/component.types'
-import './ToolBox.css'
+import { ToolBoxProps } from '@/types/component.types';
+import './ToolBox.css';
 
 const ToolBox = ({ selectedTool, onToolChange }: ToolBoxProps) => {
   return (
@@ -17,7 +17,7 @@ const ToolBox = ({ selectedTool, onToolChange }: ToolBoxProps) => {
         Road (1x1)
       </button>
     </div>
-  )
-}
+  );
+};
 
-export default ToolBox
+export default ToolBox;

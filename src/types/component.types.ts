@@ -1,4 +1,4 @@
-import { ToolType } from './game.types'
+import { ToolType } from './game.types';
 
 export interface ToolBoxProps {
   selectedTool: ToolType

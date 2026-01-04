@@ -1,5 +1,5 @@
-import GameCanvas from '@/components/GameCanvas'
-import './App.css'
+import GameCanvas from '@/components/GameCanvas';
+import './App.css';
 
 function App() {
   return (
@@ -15,7 +15,7 @@ function App() {
       </div>
       <GameCanvas />
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
