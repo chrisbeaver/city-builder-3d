@@ -14,6 +14,7 @@ const GameCanvas = () => {
   const buildingsRef = useRef<Building[]>([])
   const selectedToolRef = useRef<ToolType>('building')
   const [selectedTool, setSelectedTool] = useState<ToolType>('building')
+  const highlightedCellsRef = useRef<GridCell[]>([])
 
   const handleToolChange = (tool: ToolType) => {
     selectedToolRef.current = tool
@@ -126,6 +127,44 @@ const GameCanvas = () => {
       return true
     }
 
+    // Get building size based on tool type
+    const getBuildingSize = (toolType: ToolType): { sizeX: number, sizeZ: number } => {
+      if (toolType === 'building') return { sizeX: 2, sizeZ: 2 }
+      if (toolType === 'road') return { sizeX: 1, sizeZ: 1 }
+      return { sizeX: 1, sizeZ: 1 }
+    }
+
+    // Clear all highlighted cells
+    const clearHighlights = () => {
+      highlightedCellsRef.current.forEach(cell => {
+        const { gridX, gridZ } = cell.userData
+        cell.material.color.set(
+          (gridX + gridZ) % 2 === 0 ? 0xcccccc : 0x999999
+        )
+      })
+      highlightedCellsRef.current = []
+    }
+
+    // Highlight cells for placement
+    const highlightCells = (startX: number, startZ: number, sizeX: number, sizeZ: number, canPlace: boolean) => {
+      clearHighlights()
+      
+      for (let x = startX; x < startX + sizeX; x++) {
+        for (let z = startZ; z < startZ + sizeZ; z++) {
+          if (x >= GRID_SIZE || z >= GRID_SIZE) continue
+          const cell = getCellByCoords(x, z)
+          if (cell) {
+            highlightedCellsRef.current.push(cell)
+            if (cell.userData.hasBuilding) {
+              cell.material.color.set(0xff0000) // Red for invalid
+            } else {
+              cell.material.color.set(canPlace ? 0x00ff00 : 0xff0000) // Green for valid, red for invalid
+            }
+          }
+        }
+      }
+    }
+
     // Raycasting for click detection
     const raycaster = new THREE.Raycaster()
     const mouse = new THREE.Vector2()
@@ -140,53 +179,55 @@ const GameCanvas = () => {
       raycaster.setFromCamera(mouse, camera)
       const intersects = raycaster.intersectObjects(gridCells)
 
-      // Reset previous selection
-      if (selectedCell) {
-        const { gridX, gridZ } = selectedCell.userData
-        selectedCell.material.color.set(
-          (gridX + gridZ) % 2 === 0 ? 0xcccccc : 0x999999
-        )
-      }
-
-      // Highlight new selection
+      // Highlight cells based on tool selection
       if (intersects.length > 0) {
         selectedCell = intersects[0].object as GridCell
-        if (!selectedCell.userData.hasBuilding) {
-          selectedCell.material.color.set(0x00ff00)
-        }
+        const { gridX, gridZ } = selectedCell.userData
+        const { sizeX, sizeZ } = getBuildingSize(selectedToolRef.current)
+        const canPlace = areCellsAvailable(gridX, gridZ, sizeX, sizeZ)
+        highlightCells(gridX, gridZ, sizeX, sizeZ, canPlace)
       } else {
+        clearHighlights()
         selectedCell = null
       }
     }
 
-    const placeBuilding = (gridX: number, gridZ: number): Building | null => {
-      // Check if 2x2 area is available
-      if (!areCellsAvailable(gridX, gridZ, 2, 2)) return null
+    const placeBuilding = (gridX: number, gridZ: number, sizeX: number = 2, sizeZ: number = 2): Building | null => {
+      // Check if area is available
+      if (!areCellsAvailable(gridX, gridZ, sizeX, sizeZ)) return null
 
-      // Create a 2x2 building (colored cube)
+      // Create a building (colored cube)
       const height = Math.random() * 3 + 2
-      const buildingSize = CELL_SIZE * 2 - 0.4
-      const geometry = new THREE.BoxGeometry(buildingSize, height, buildingSize)
+      // Match the cell geometry size (CELL_SIZE - 0.2) for each cell
+      const buildingWidth = (CELL_SIZE - 0.2) * sizeX
+      const buildingDepth = (CELL_SIZE - 0.2) * sizeZ
+      const geometry = new THREE.BoxGeometry(buildingWidth, height, buildingDepth)
       const material = new THREE.MeshStandardMaterial({
         color: Math.random() * 0xffffff,
       })
       const building = new THREE.Mesh(geometry, material)
       
-      // Position at center of 2x2 grid
-      building.position.x = gridX * CELL_SIZE + CELL_SIZE
+      // Position at center of occupied cells (cells are positioned at gridX * CELL_SIZE)
+      // Building center should be at the center of all occupied cell centers
+      const firstCellCenterX = gridX * CELL_SIZE
+      const lastCellCenterX = (gridX + sizeX - 1) * CELL_SIZE
+      const firstCellCenterZ = gridZ * CELL_SIZE
+      const lastCellCenterZ = (gridZ + sizeZ - 1) * CELL_SIZE
+      
+      building.position.x = (firstCellCenterX + lastCellCenterX) / 2
       building.position.y = height / 2
-      building.position.z = gridZ * CELL_SIZE + CELL_SIZE
+      building.position.z = (firstCellCenterZ + lastCellCenterZ) / 2
       
       building.castShadow = true
       building.receiveShadow = true
-      building.userData = { gridX, gridZ, sizeX: 2, sizeZ: 2, type: 'building' }
+      building.userData = { gridX, gridZ, sizeX, sizeZ, type: 'building' }
       
       scene.add(building)
       buildingsRef.current.push(building as Building)
       
-      // Mark all 4 cells as occupied
-      for (let x = gridX; x < gridX + 2; x++) {
-        for (let z = gridZ; z < gridZ + 2; z++) {
+      // Mark all cells as occupied
+      for (let x = gridX; x < gridX + sizeX; x++) {
+        for (let z = gridZ; z < gridZ + sizeZ; z++) {
           const cell = getCellByCoords(x, z)
           if (cell) {
             cell.userData.hasBuilding = true
@@ -198,32 +239,45 @@ const GameCanvas = () => {
       return building
     }
 
-    const placeRoad = (gridX: number, gridZ: number): Building | null => {
+    const placeRoad = (gridX: number, gridZ: number, sizeX: number = 1, sizeZ: number = 1): Building | null => {
       // Check if cell is available
-      if (!areCellsAvailable(gridX, gridZ, 1, 1)) return null
+      if (!areCellsAvailable(gridX, gridZ, sizeX, sizeZ)) return null
 
       // Create a road (flat, dark rectangle)
-      const geometry = new THREE.BoxGeometry(CELL_SIZE - 0.2, 0.1, CELL_SIZE - 0.2)
+      // Match the cell geometry size (CELL_SIZE - 0.2) for each cell
+      const roadWidth = (CELL_SIZE - 0.2) * sizeX
+      const roadDepth = (CELL_SIZE - 0.2) * sizeZ
+      const geometry = new THREE.BoxGeometry(roadWidth, 0.1, roadDepth)
       const material = new THREE.MeshStandardMaterial({
         color: 0x333333,
       })
       const road = new THREE.Mesh(geometry, material)
       
-      road.position.x = gridX * CELL_SIZE
+      // Position at center of occupied cells (cells are positioned at gridX * CELL_SIZE)
+      const firstCellCenterX = gridX * CELL_SIZE
+      const lastCellCenterX = (gridX + sizeX - 1) * CELL_SIZE
+      const firstCellCenterZ = gridZ * CELL_SIZE
+      const lastCellCenterZ = (gridZ + sizeZ - 1) * CELL_SIZE
+      
+      road.position.x = (firstCellCenterX + lastCellCenterX) / 2
       road.position.y = 0.15
-      road.position.z = gridZ * CELL_SIZE
+      road.position.z = (firstCellCenterZ + lastCellCenterZ) / 2
       
       road.receiveShadow = true
-      road.userData = { gridX, gridZ, sizeX: 1, sizeZ: 1, type: 'road' }
+      road.userData = { gridX, gridZ, sizeX, sizeZ, type: 'road' }
       
       scene.add(road)
       buildingsRef.current.push(road as Building)
       
-      // Mark cell as occupied
-      const cell = getCellByCoords(gridX, gridZ)
-      if (cell) {
-        cell.userData.hasBuilding = true
-        cell.material.color.set(0x444444)
+      // Mark all cells as occupied
+      for (let x = gridX; x < gridX + sizeX; x++) {
+        for (let z = gridZ; z < gridZ + sizeZ; z++) {
+          const cell = getCellByCoords(x, z)
+          if (cell) {
+            cell.userData.hasBuilding = true
+            cell.material.color.set(0x444444)
+          }
+        }
       }
       
       return road
@@ -290,12 +344,15 @@ const GameCanvas = () => {
       if (intersects.length > 0) {
         const cell = intersects[0].object as GridCell
         const { gridX, gridZ } = cell.userData
+        const { sizeX, sizeZ } = getBuildingSize(selectedToolRef.current)
 
         if (selectedToolRef.current === 'building') {
-          placeBuilding(gridX, gridZ)
+          placeBuilding(gridX, gridZ, sizeX, sizeZ)
         } else if (selectedToolRef.current === 'road') {
-          placeRoad(gridX, gridZ)
+          placeRoad(gridX, gridZ, sizeX, sizeZ)
         }
+        
+        clearHighlights()
       }
     }
 
