@@ -15,6 +15,7 @@ const GameCanvas = () => {
   const selectedToolRef = useRef<ToolType>('building');
   const [selectedTool, setSelectedTool] = useState<ToolType>('building');
   const highlightedCellsRef = useRef<GridCell[]>([]);
+  const translucentBuildingsRef = useRef<Set<Building>>(new Set());
 
   const handleToolChange = (tool: ToolType) => {
     selectedToolRef.current = tool;
@@ -148,6 +149,55 @@ const GameCanvas = () => {
       highlightedCellsRef.current = [];
     };
 
+    // Restore building opacity
+    const restoreBuildingOpacity = () => {
+      translucentBuildingsRef.current.forEach(building => {
+        if (building.material instanceof THREE.MeshStandardMaterial) {
+          building.material.transparent = false;
+          building.material.opacity = 1.0;
+          building.material.needsUpdate = true;
+        }
+      });
+      translucentBuildingsRef.current.clear();
+    };
+
+    // Make buildings translucent when they block view of placement
+    const updateBuildingTranslucency = (previewGridX: number, previewGridZ: number) => {
+      // Restore previous translucent buildings
+      restoreBuildingOpacity();
+      
+      // Get tool size to calculate preview position
+      const { sizeX, sizeZ } = getBuildingSize(selectedToolRef.current);
+      
+      // Calculate center of placement preview in world coordinates
+      const previewWorldX = previewGridX * CELL_SIZE + (sizeX * CELL_SIZE) / 2;
+      const previewWorldZ = previewGridZ * CELL_SIZE + (sizeZ * CELL_SIZE) / 2;
+      const previewWorldY = sizeX === 2 ? 2 : 0.5; // Approximate height for building vs road
+      
+      const previewPosition = new THREE.Vector3(previewWorldX, previewWorldY, previewWorldZ);
+      const direction = new THREE.Vector3().subVectors(previewPosition, camera.position).normalize();
+      
+      // Cast ray from camera towards placement position
+      placementRaycaster.set(camera.position, direction);
+      const intersects = placementRaycaster.intersectObjects(buildingsArray, true);
+      
+      // Calculate distance to placement area
+      const distanceToPlacement = camera.position.distanceTo(previewPosition);
+      
+      // Make buildings translucent that are between camera and placement
+      intersects.forEach(intersect => {
+        if (intersect.distance < distanceToPlacement - 2) { // Buffer to avoid making target translucent
+          const building = intersect.object as Building;
+          if (building.material instanceof THREE.MeshStandardMaterial) {
+            building.material.transparent = true;
+            building.material.opacity = 0.3;
+            building.material.needsUpdate = true;
+            translucentBuildingsRef.current.add(building);
+          }
+        }
+      });
+    };
+
     // Highlight cells for placement
     const highlightCells = (startX: number, startZ: number, sizeX: number, sizeZ: number, canPlace: boolean) => {
       clearHighlights();
@@ -170,6 +220,7 @@ const GameCanvas = () => {
 
     // Raycasting for click detection
     const raycaster = new THREE.Raycaster();
+    const placementRaycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let selectedCell: GridCell | null = null;
     const mouseDownPos = { x: 0, y: 0 };
@@ -189,8 +240,16 @@ const GameCanvas = () => {
         const { sizeX, sizeZ } = getBuildingSize(selectedToolRef.current);
         const canPlace = areCellsAvailable(gridX, gridZ, sizeX, sizeZ);
         highlightCells(gridX, gridZ, sizeX, sizeZ, canPlace);
+        
+        // Update building translucency to see through blocking structures
+        if (canPlace) {
+          updateBuildingTranslucency(gridX, gridZ);
+        } else {
+          restoreBuildingOpacity();
+        }
       } else {
         clearHighlights();
+        restoreBuildingOpacity();
         selectedCell = null;
       }
     };
@@ -402,6 +461,7 @@ const GameCanvas = () => {
 
     // Cleanup
     return () => {
+      restoreBuildingOpacity();
       renderer.domElement.removeEventListener('mousemove', onMouseMove);
       renderer.domElement.removeEventListener('mousedown', onMouseDown);
       renderer.domElement.removeEventListener('mouseup', onMouseUp);
