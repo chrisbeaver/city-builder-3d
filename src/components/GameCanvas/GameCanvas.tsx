@@ -1,25 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import ToolBox from '@/components/ToolBox'
+import { ToolType, GridCell, Building } from '@/types/game.types'
 
 const GameCanvas = () => {
-  const mountRef = useRef(null)
-  const sceneRef = useRef(null)
-  const cameraRef = useRef(null)
-  const rendererRef = useRef(null)
-  const controlsRef = useRef(null)
-  const gridCellsRef = useRef([])
-  const buildingsRef = useRef([])
-  const selectedToolRef = useRef('building')
-  const [selectedTool, setSelectedTool] = useState('building')
+  const mountRef = useRef<HTMLDivElement>(null)
+  const sceneRef = useRef<THREE.Scene | null>(null)
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
+  const controlsRef = useRef<OrbitControls | null>(null)
+  const gridCellsRef = useRef<GridCell[]>([])
+  const buildingsRef = useRef<Building[]>([])
+  const selectedToolRef = useRef<ToolType>('building')
+  const [selectedTool, setSelectedTool] = useState<ToolType>('building')
 
-  const handleToolChange = (tool) => {
+  const handleToolChange = (tool: ToolType) => {
     selectedToolRef.current = tool
     setSelectedTool(tool)
   }
 
   useEffect(() => {
+    if (!mountRef.current) return
+
     // Grid configuration
     const GRID_SIZE = 100
     const CELL_SIZE = 2
@@ -76,7 +79,7 @@ const GameCanvas = () => {
     scene.add(directionalLight)
 
     // Create grid
-    const gridCells = []
+    const gridCells: GridCell[] = []
     for (let x = 0; x < GRID_SIZE; x++) {
       for (let z = 0; z < GRID_SIZE; z++) {
         const geometry = new THREE.BoxGeometry(CELL_SIZE - 0.2, 0.2, CELL_SIZE - 0.2)
@@ -93,19 +96,19 @@ const GameCanvas = () => {
         cell.userData = { gridX: x, gridZ: z, isGridCell: true, hasBuilding: false }
         
         scene.add(cell)
-        gridCells.push(cell)
+        gridCells.push(cell as GridCell)
       }
     }
     gridCellsRef.current = gridCells
 
     // Helper functions
-    const getCellByCoords = (gridX, gridZ) => {
+    const getCellByCoords = (gridX: number, gridZ: number): GridCell | undefined => {
       return gridCells.find(cell => 
         cell.userData.gridX === gridX && cell.userData.gridZ === gridZ
       )
     }
 
-    const areCellsAvailable = (gridX, gridZ, sizeX, sizeZ) => {
+    const areCellsAvailable = (gridX: number, gridZ: number, sizeX: number, sizeZ: number): boolean => {
       for (let x = gridX; x < gridX + sizeX; x++) {
         for (let z = gridZ; z < gridZ + sizeZ; z++) {
           if (x >= GRID_SIZE || z >= GRID_SIZE) return false
@@ -119,11 +122,11 @@ const GameCanvas = () => {
     // Raycasting for click detection
     const raycaster = new THREE.Raycaster()
     const mouse = new THREE.Vector2()
-    let selectedCell = null
+    let selectedCell: GridCell | null = null
     let mouseDownPos = { x: 0, y: 0 }
     let mouseDownTime = 0
 
-    const onMouseMove = (event) => {
+    const onMouseMove = (event: MouseEvent) => {
       mouse.x = (event.clientX / window.innerWidth) * 2 - 1
       mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
 
@@ -140,7 +143,7 @@ const GameCanvas = () => {
 
       // Highlight new selection
       if (intersects.length > 0) {
-        selectedCell = intersects[0].object
+        selectedCell = intersects[0].object as GridCell
         if (!selectedCell.userData.hasBuilding) {
           selectedCell.material.color.set(0x00ff00)
         }
@@ -149,7 +152,7 @@ const GameCanvas = () => {
       }
     }
 
-    const placeBuilding = (gridX, gridZ) => {
+    const placeBuilding = (gridX: number, gridZ: number): Building | null => {
       // Check if 2x2 area is available
       if (!areCellsAvailable(gridX, gridZ, 2, 2)) return null
 
@@ -172,7 +175,7 @@ const GameCanvas = () => {
       building.userData = { gridX, gridZ, sizeX: 2, sizeZ: 2, type: 'building' }
       
       scene.add(building)
-      buildingsRef.current.push(building)
+      buildingsRef.current.push(building as Building)
       
       // Mark all 4 cells as occupied
       for (let x = gridX; x < gridX + 2; x++) {
@@ -188,7 +191,7 @@ const GameCanvas = () => {
       return building
     }
 
-    const placeRoad = (gridX, gridZ) => {
+    const placeRoad = (gridX: number, gridZ: number): Building | null => {
       // Check if cell is available
       if (!areCellsAvailable(gridX, gridZ, 1, 1)) return null
 
@@ -207,7 +210,7 @@ const GameCanvas = () => {
       road.userData = { gridX, gridZ, sizeX: 1, sizeZ: 1, type: 'road' }
       
       scene.add(road)
-      buildingsRef.current.push(road)
+      buildingsRef.current.push(road as Building)
       
       // Mark cell as occupied
       const cell = getCellByCoords(gridX, gridZ)
@@ -219,7 +222,7 @@ const GameCanvas = () => {
       return road
     }
 
-    const removeBuilding = (gridX, gridZ) => {
+    const removeBuilding = (gridX: number, gridZ: number): boolean => {
       const buildingIndex = buildingsRef.current.findIndex(
         b => {
           const { gridX: bx, gridZ: bz, sizeX = 1, sizeZ = 1 } = b.userData
@@ -252,7 +255,7 @@ const GameCanvas = () => {
       return false
     }
 
-    const onMouseDown = (event) => {
+    const onMouseDown = (event: MouseEvent) => {
       if (event.button !== 0) return // Only left button
       
       mouseDownPos.x = event.clientX
@@ -260,7 +263,7 @@ const GameCanvas = () => {
       mouseDownTime = Date.now()
     }
 
-    const onMouseUp = (event) => {
+    const onMouseUp = (event: MouseEvent) => {
       if (event.button !== 0) return // Only left button
 
       // Check if mouse moved (dragging camera) or time was too long
@@ -278,7 +281,7 @@ const GameCanvas = () => {
       const intersects = raycaster.intersectObjects(gridCells)
 
       if (intersects.length > 0) {
-        const cell = intersects[0].object
+        const cell = intersects[0].object as GridCell
         const { gridX, gridZ } = cell.userData
 
         if (selectedToolRef.current === 'building') {
@@ -289,7 +292,7 @@ const GameCanvas = () => {
       }
     }
 
-    const onContextMenu = (event) => {
+    const onContextMenu = (event: MouseEvent) => {
       event.preventDefault()
       
       mouse.x = (event.clientX / window.innerWidth) * 2 - 1
@@ -299,14 +302,11 @@ const GameCanvas = () => {
       const intersects = raycaster.intersectObjects(gridCells)
 
       if (intersects.length > 0) {
-        const cell = intersects[0].object
+        const cell = intersects[0].object as GridCell
         const { gridX, gridZ } = cell.userData
 
         if (cell.userData.hasBuilding) {
-          if (removeBuilding(gridX, gridZ)) {
-            cell.userData.hasBuilding = false
-            cell.material.color.set((gridX + gridZ) % 2 === 0 ? 0xcccccc : 0x999999)
-          }
+          removeBuilding(gridX, gridZ)
         }
       }
     }

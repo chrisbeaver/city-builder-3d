@@ -1,6 +1,7 @@
+import { ToolBoxProps } from '@/types/component.types'
 import './ToolBox.css'
 
-const ToolBox = ({ selectedTool, onToolChange }) => {
+const ToolBox = ({ selectedTool, onToolChange }: ToolBoxProps) => {
   return (
     <div className="toolbox">
       <button 
