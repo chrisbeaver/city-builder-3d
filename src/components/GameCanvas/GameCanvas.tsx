@@ -39,8 +39,11 @@ const GameCanvas = () => {
       0.1,
       1000
     )
-    camera.position.set(80, 80, 80)
-    camera.lookAt(GRID_SIZE, 0, GRID_SIZE)
+    // Start closer to the grid center for better initial view
+    const gridCenterX = (GRID_SIZE * CELL_SIZE) / 2
+    const gridCenterZ = (GRID_SIZE * CELL_SIZE) / 2
+    camera.position.set(gridCenterX + 30, 40, gridCenterZ + 30)
+    camera.lookAt(gridCenterX, 0, gridCenterZ)
     cameraRef.current = camera
 
     // Renderer setup
@@ -56,8 +59,12 @@ const GameCanvas = () => {
     controls.enableDamping = true
     controls.dampingFactor = 0.05
     controls.maxPolarAngle = Math.PI / 2.5 // Don't go below ground
-    controls.minDistance = 20
-    controls.maxDistance = 200
+    controls.minDistance = 10 // Closer zoom for finer granularity
+    controls.maxDistance = 300
+    controls.enablePan = true // Enable panning
+    controls.panSpeed = 1.0
+    controls.screenSpacePanning = false // Pan in ground plane
+    controls.target.set(gridCenterX, 0, gridCenterZ) // Set initial target to grid center
     controls.mouseButtons = {
       LEFT: THREE.MOUSE.ROTATE,
       MIDDLE: THREE.MOUSE.DOLLY,
