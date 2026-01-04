@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
-import ToolBox from './ToolBox'
+import ToolBox from '@/components/ToolBox'
 
 const GameCanvas = () => {
   const mountRef = useRef(null)

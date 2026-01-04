@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import GameCanvas from './components/GameCanvas'
+import GameCanvas from '@/components/GameCanvas'
 import './App.css'
 
 function App() {
