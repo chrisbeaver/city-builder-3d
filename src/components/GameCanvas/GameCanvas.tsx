@@ -120,6 +120,35 @@ const GameCanvas = () => {
       );
     };
 
+    // Calculate straight path between two grid cells (no diagonals)
+    const calculateStraightPath = (startX: number, startZ: number, endX: number, endZ: number): Array<{ gridX: number, gridZ: number }> => {
+      const path: Array<{ gridX: number, gridZ: number }> = [];
+      
+      // Determine if path is more horizontal or vertical
+      const dx = Math.abs(endX - startX);
+      const dz = Math.abs(endZ - startZ);
+      
+      if (dx > dz) {
+        // Horizontal path
+        const z = startZ;
+        const xStart = Math.min(startX, endX);
+        const xEnd = Math.max(startX, endX);
+        for (let x = xStart; x <= xEnd; x++) {
+          path.push({ gridX: x, gridZ: z });
+        }
+      } else {
+        // Vertical path
+        const x = startX;
+        const zStart = Math.min(startZ, endZ);
+        const zEnd = Math.max(startZ, endZ);
+        for (let z = zStart; z <= zEnd; z++) {
+          path.push({ gridX: x, gridZ: z });
+        }
+      }
+      
+      return path;
+    };
+
     const areCellsAvailable = (gridX: number, gridZ: number, sizeX: number, sizeZ: number): boolean => {
       for (let x = gridX; x < gridX + sizeX; x++) {
         for (let z = gridZ; z < gridZ + sizeZ; z++) {
@@ -225,6 +254,11 @@ const GameCanvas = () => {
     let selectedCell: GridCell | null = null;
     const mouseDownPos = { x: 0, y: 0 };
     let mouseDownTime = 0;
+    
+    // Drag placement state for roads
+    let isDragging = false;
+    let dragStartCell: { gridX: number, gridZ: number } | null = null;
+    let dragPath: Array<{ gridX: number, gridZ: number }> = [];
 
     const onMouseMove = (event: MouseEvent) => {
       mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -232,6 +266,32 @@ const GameCanvas = () => {
 
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(gridCells);
+
+      // If dragging road, update the path preview
+      if (isDragging && dragStartCell && intersects.length > 0) {
+        const currentCell = intersects[0].object as GridCell;
+        const { gridX, gridZ } = currentCell.userData;
+        
+        // Clear previous path highlights
+        clearHighlights();
+        
+        // Calculate new straight path
+        dragPath = calculateStraightPath(dragStartCell.gridX, dragStartCell.gridZ, gridX, gridZ);
+        
+        // Highlight the entire path
+        dragPath.forEach(pos => {
+          const canPlace = areCellsAvailable(pos.gridX, pos.gridZ, 1, 1);
+          highlightCells(pos.gridX, pos.gridZ, 1, 1, canPlace);
+        });
+        
+        // Update translucency for better visibility
+        if (dragPath.length > 0) {
+          const midPoint = dragPath[Math.floor(dragPath.length / 2)];
+          updateBuildingTranslucency(midPoint.gridX, midPoint.gridZ);
+        }
+        
+        return;
+      }
 
       // Highlight cells based on tool selection
       if (intersects.length > 0) {
@@ -383,11 +443,50 @@ const GameCanvas = () => {
       
       mouseDownPos.x = event.clientX;
       mouseDownPos.y = event.clientY;
-      mouseDownTime = Date.now();
-    };
+      mouseDownTime = Date.now();      
+      // Start drag mode for roads
+      if (selectedToolRef.current === 'road') {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(gridCells);
+        
+        if (intersects.length > 0) {
+          const cell = intersects[0].object as GridCell;
+          dragStartCell = { gridX: cell.userData.gridX, gridZ: cell.userData.gridZ };
+          isDragging = true;
+          dragPath = [dragStartCell];
+        }
+      }    };
 
     const onMouseUp = (event: MouseEvent) => {
       if (event.button !== 0) return; // Only left button
+
+      // Handle road drag placement
+      if (isDragging && selectedToolRef.current === 'road' && dragPath.length > 0) {
+        // Place road along the entire path
+        dragPath.forEach(pos => {
+          placeRoad(pos.gridX, pos.gridZ, 1, 1);
+        });
+        
+        // Reset drag state
+        isDragging = false;
+        dragStartCell = null;
+        dragPath = [];
+        clearHighlights();
+        restoreBuildingOpacity();
+        return;
+      }
+      
+      // Reset drag state if it was being dragged
+      if (isDragging) {
+        isDragging = false;
+        dragStartCell = null;
+        dragPath = [];
+        clearHighlights();
+        return;
+      }
 
       // Check if mouse moved (dragging camera) or time was too long
       const dx = Math.abs(event.clientX - mouseDownPos.x);
