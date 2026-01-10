@@ -271,25 +271,31 @@ const GameCanvas = () => {
       if (isDragging && dragStartCell && intersects.length > 0) {
         const currentCell = intersects[0].object as GridCell;
         const { gridX, gridZ } = currentCell.userData;
-        
-        // Clear previous path highlights
-        clearHighlights();
-        
+
         // Calculate new straight path
         dragPath = calculateStraightPath(dragStartCell.gridX, dragStartCell.gridZ, gridX, gridZ);
-        
-        // Highlight the entire path
+
+        // Clear previous path highlights and highlight all cells in the new path
+        clearHighlights();
         dragPath.forEach(pos => {
-          const canPlace = areCellsAvailable(pos.gridX, pos.gridZ, 1, 1);
-          highlightCells(pos.gridX, pos.gridZ, 1, 1, canPlace);
+          const cell = getCellByCoords(pos.gridX, pos.gridZ);
+          if (cell) {
+            highlightedCellsRef.current.push(cell);
+            const canPlace = areCellsAvailable(pos.gridX, pos.gridZ, 1, 1);
+            if (cell.userData.hasBuilding) {
+              cell.material.color.set(0xff0000); // Red for invalid
+            } else {
+              cell.material.color.set(canPlace ? 0x00ff00 : 0xff0000); // Green for valid, red for invalid
+            }
+          }
         });
-        
-        // Update translucency for better visibility
+
+        // Update translucency for better visibility (use midpoint of path)
         if (dragPath.length > 0) {
           const midPoint = dragPath[Math.floor(dragPath.length / 2)];
           updateBuildingTranslucency(midPoint.gridX, midPoint.gridZ);
         }
-        
+
         return;
       }
 
@@ -457,6 +463,7 @@ const GameCanvas = () => {
           dragStartCell = { gridX: cell.userData.gridX, gridZ: cell.userData.gridZ };
           isDragging = true;
           dragPath = [dragStartCell];
+          controls.enabled = false; // Disable camera rotation during drag
         }
       }    };
 
@@ -476,6 +483,7 @@ const GameCanvas = () => {
         dragPath = [];
         clearHighlights();
         restoreBuildingOpacity();
+        controls.enabled = true; // Re-enable camera rotation
         return;
       }
       
@@ -485,6 +493,7 @@ const GameCanvas = () => {
         dragStartCell = null;
         dragPath = [];
         clearHighlights();
+        controls.enabled = true; // Re-enable camera rotation
         return;
       }
 
