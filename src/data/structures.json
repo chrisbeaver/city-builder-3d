@@ -1,0 +1,87 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-01-11",
+  "structures": [
+    {
+      "id": "small_house",
+      "name": "Small House",
+      "description": "A cozy 2x2 residential building perfect for starting your city",
+      "dimensions": {
+        "width": 2,
+        "depth": 2,
+        "height": 6
+      },
+      "textures": {
+        "walls": "/textures/buildings/house_walls.jpg",
+        "roof": "/textures/buildings/house_roof.jpg",
+        "base": "/textures/buildings/house_base.jpg"
+      },
+      "functionality": {
+        "category": "residential",
+        "subType": "house",
+        "capacity": 4,
+        "cost": {
+          "coins": 100,
+          "materials": 50
+        }
+      },
+      "icon": "/icons/small_house.png",
+      "available": true
+    },
+    {
+      "id": "commercial_strip",
+      "name": "Commercial Strip",
+      "description": "A 3x1 commercial building with multiple storefronts",
+      "dimensions": {
+        "width": 3,
+        "depth": 1,
+        "height": 8
+      },
+      "textures": {
+        "walls": "/textures/buildings/commercial_walls.jpg",
+        "roof": "/textures/buildings/commercial_roof.jpg",
+        "base": "/textures/buildings/commercial_base.jpg"
+      },
+      "functionality": {
+        "category": "commercial",
+        "subType": "retail",
+        "production": {
+          "resourceType": "income",
+          "rate": 50
+        },
+        "capacity": 10,
+        "cost": {
+          "coins": 250,
+          "materials": 100
+        },
+        "effects": {
+          "attractiveness": 5
+        }
+      },
+      "icon": "/icons/commercial_strip.png",
+      "available": true
+    },
+    {
+      "id": "road_straight",
+      "name": "Road",
+      "description": "A basic road segment for connecting your city",
+      "dimensions": {
+        "width": 1,
+        "depth": 1,
+        "height": 0.2
+      },
+      "textures": {
+        "base": "/textures/infrastructure/road_asphalt.jpg"
+      },
+      "functionality": {
+        "category": "infrastructure",
+        "subType": "road",
+        "cost": {
+          "coins": 10
+        }
+      },
+      "icon": "/icons/road.png",
+      "available": true
+    }
+  ]
+}

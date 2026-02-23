@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Structure } from './structure.types';
 
 export interface GridCellUserData {
   gridX: number
@@ -13,6 +14,8 @@ export interface BuildingUserData {
   sizeX: number
   sizeZ: number
   type: 'building' | 'road'
+  /** Reference to the structure definition */
+  structure?: Structure
 }
 
 export type GridCell = THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial> & {

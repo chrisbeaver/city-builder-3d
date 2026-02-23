@@ -90,6 +90,28 @@ const GameCanvas = () => {
     directionalLight.shadow.camera.far = 500;
     scene.add(directionalLight);
 
+    // Load road textures
+    const textureLoader = new THREE.TextureLoader();
+    const roadDiffuse = textureLoader.load('/textures/road/road_color.jpg');
+    const roadRoughness = textureLoader.load('/textures/road/road_roughness.jpg');
+    const roadNormal = textureLoader.load('/textures/road/road_normal.jpg');
+
+    // Set textures to repeat for tiling
+    [roadDiffuse, roadRoughness, roadNormal].forEach(texture => {
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(1, 1);
+    });
+
+    // Create road material with all three maps
+    const roadMaterial = new THREE.MeshStandardMaterial({
+      map: roadDiffuse,
+      roughnessMap: roadRoughness,
+      normalMap: roadNormal,
+      roughness: 0.9,
+      metalness: 0.0
+    });
+
     // Create grid
     const gridCells: GridCell[] = [];
     for (let x = 0; x < GRID_SIZE; x++) {
@@ -371,14 +393,14 @@ const GameCanvas = () => {
       // Check if cell is available
       if (!areCellsAvailable(gridX, gridZ, sizeX, sizeZ)) return null;
 
-      // Create a road (flat, dark rectangle)
+      // Create a road (flat, textured rectangle)
       // Match the cell geometry size (CELL_SIZE - 0.2) for each cell
       const roadWidth = (CELL_SIZE - 0.2) * sizeX;
       const roadDepth = (CELL_SIZE - 0.2) * sizeZ;
       const geometry = new THREE.BoxGeometry(roadWidth, 0.1, roadDepth);
-      const material = new THREE.MeshStandardMaterial({
-        color: 0x333333,
-      });
+      
+      // Clone the road material for this road instance
+      const material = roadMaterial.clone();
       const road = new THREE.Mesh(geometry, material);
       
       // Position at center of occupied cells (cells are positioned at gridX * CELL_SIZE)
